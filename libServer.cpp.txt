@@ -1,0 +1,56 @@
+#include <iostream>
+#include <event2/event.h>
+#include <event2/bufferevent.h>
+#include <event2/listener.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <cstring>
+#include <unistd.h>
+
+
+using namespace std;
+//所有客户端的读函数
+static void allRead(bufferevent *bevent,void *arg)
+{
+	char buffer[128];
+	size_t len=bufferevent_read(bevent,buffer,sizeof(buffer));
+	cout<<buffer;
+	bufferevent_write(bevent,buffer,len);
+	
+}
+//连接进来之后调用握手回调函数
+static void shakeHand(evconnlistener *listener,evutil_socket_t fd,sockaddr *addr,int len,void *ptr)
+{
+	bufferevent *bevent;
+	bevent=bufferevent_socket_new((event_base *)ptr,fd,BEV_OPT_CLOSE_ON_FREE);
+	
+	bufferevent_setcb(bevent,allRead,NULL,NULL,NULL);
+}
+
+
+
+int main(int arg,char **argv)
+{
+	sockaddr_in addr;
+	event_base* base;
+	
+	memset(&addr,0,sizeof(addr));
+	base=event_base_new();
+	
+	addr.sin_family=AF_INET;
+	addr.sin_port=htons(6210);
+	addr.sin_addr.s_addr=htonl(INADDR_ANY);
+	
+	evconnlistener *listener;
+	listener=evconnlistener_new_bind(base,shakeHand,base,LEV_OPT_CLOSE_ON_FREE|LEV_OPT_REUSEABLE,-1,(sockaddr *)&addr,sizeof(addr));
+	
+	event_base_dispatch(base);
+	
+	evconnlistener_free(listener);
+	event_base_free(base);
+
+	
+
+	
+
+}
